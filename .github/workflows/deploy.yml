@@ -93,19 +93,24 @@ jobs:
       - name: Install Anypoint CLI
         run: npm install -g anypoint-cli-v4
 
-      - name: Publish to Exchange
+      - name: Authenticate Anypoint CLI
         run: |
-          mvn deploy -DskipTests -DskipValidation=true \
-            -Danypoint.clientId="${{ secrets.ANYPOINT_CLIENT_ID }}" \
-            -Danypoint.clientSecret="${{ secrets.ANYPOINT_CLIENT_SECRET }}"
+          anypoint-cli-v4 conf client_id "${{ secrets.ANYPOINT_CLIENT_ID }}"
+          anypoint-cli-v4 conf client_secret "${{ secrets.ANYPOINT_CLIENT_SECRET }}"
+          anypoint-cli-v4 conf organization "${{ secrets.ANYPOINT_ORG_ID }}"
+          anypoint-cli-v4 conf environment "${{ vars.DEPLOY_ENV }}"
+
+      - name: Upload to Exchange
+        run: |
+          anypoint-cli-v4 exchange asset upload \
+            --name "${{ vars.APP_NAME }}" \
+            --type app \
+            --files '{"mule-application.jar": "${{ vars.APP_NAME }}-1.0.0-SNAPSHOT-mule-application.jar"}' \
+            "${{ secrets.ANYPOINT_ORG_ID }}/${{ vars.APP_NAME }}/1.0.0"
 
       - name: Deploy to CloudHub 2
         run: |
           anypoint-cli-v4 runtime-mgr application deploy \
-            --client_id "${{ secrets.ANYPOINT_CLIENT_ID }}" \
-            --client_secret "${{ secrets.ANYPOINT_CLIENT_SECRET }}" \
-            --organization "${{ secrets.ANYPOINT_ORG_ID }}" \
-            --environment "${{ vars.DEPLOY_ENV }}" \
             --replicaSize "0.1" \
             "${{ vars.APP_NAME }}" \
             "${{ vars.DEPLOY_TARGET }}" \
