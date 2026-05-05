@@ -286,7 +286,7 @@ output application/json
 output application/json
 ---
 {
-    errorType: error.errorType.asString,
+    errorType: (error.errorType.namespace default "") ++ ":" ++ (error.errorType.identifier default ""),
     description: error.description,
     timestamp: now() as String
 }]]></ee:set-variable>
