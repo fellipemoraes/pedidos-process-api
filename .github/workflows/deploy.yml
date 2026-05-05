@@ -102,10 +102,12 @@ jobs:
 
       - name: Upload to Exchange
         run: |
+          JAR_FILE=$(ls *.jar | head -1)
+          echo "Uploading: $JAR_FILE"
           anypoint-cli-v4 exchange asset upload \
             --name "${{ vars.APP_NAME }}" \
             --type app \
-            --files '{"mule-application.jar": "${{ vars.APP_NAME }}-1.0.0-SNAPSHOT-mule-application.jar"}' \
+            --files "{\"mule-application.jar\": \"$JAR_FILE\"}" \
             "${{ secrets.ANYPOINT_ORG_ID }}/${{ vars.APP_NAME }}/1.0.0"
 
       - name: Deploy to CloudHub 2
