@@ -114,7 +114,14 @@ jobs:
       - name: Deploy to CloudHub 2
         run: |
           VERSION="1.0.${{ github.run_number }}"
-          anypoint-cli-v4 runtime-mgr application deploy \
+          # tenta update (app já existe); se falhar, faz deploy (primeira vez)
+          anypoint-cli-v4 runtime-mgr application update \
+            --replicaSize "0.1" \
+            --publicEndpoints "${{ vars.PUBLIC_ENDPOINT }}" \
+            --assetVersion "$VERSION" \
+            "${{ vars.APP_NAME }}" \
+            "${{ vars.APP_NAME }}" \
+          || anypoint-cli-v4 runtime-mgr application deploy \
             --replicaSize "0.1" \
             --publicEndpoints "${{ vars.PUBLIC_ENDPOINT }}" \
             --assetVersion "$VERSION" \
