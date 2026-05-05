@@ -129,7 +129,6 @@ jobs:
             --assetVersion "$VERSION" \
             --replicaSize "0.1" \
             --updateStrategy rolling \
-            --publicEndpoints "${{ vars.APP_NAME }}-sh06qr.qfq181.bra-s1.cloudhub.io" \
             "${{ steps.lookup.outputs.app_id }}"
 
       - name: Deploy new app
