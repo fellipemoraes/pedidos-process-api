@@ -1,0 +1,27 @@
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:estoque-api="http://www.mulesoft.org/schema/mule/estoque-api" xmlns:fatura-api="http://www.mulesoft.org/schema/mule/fatura-api" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:kafka="http://www.mulesoft.org/schema/mule/kafka" xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns:pedido-api="http://www.mulesoft.org/schema/mule/pedido-api" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd                           http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd                           http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd                           http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/kafka/current/mule-kafka.xsd                           http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd                           http://www.mulesoft.org/schema/mule/pedido-api http://www.mulesoft.org/schema/mule/pedido-api/current/mule-pedido-api.xsd                           http://www.mulesoft.org/schema/mule/estoque-api http://www.mulesoft.org/schema/mule/estoque-api/current/mule-estoque-api.xsd                           http://www.mulesoft.org/schema/mule/fatura-api http://www.mulesoft.org/schema/mule/fatura-api/current/mule-fatura-api.xsd">
+  <kafka:producer-config name="Kafka-config">
+    <kafka:producer-plaintext-connection>
+      <kafka:bootstrap-servers>
+        <kafka:bootstrap-server value="tcp://cloud-services.demos.muleSoft.com:30858"></kafka:bootstrap-server>
+      </kafka:bootstrap-servers>
+    </kafka:producer-plaintext-connection>
+  </kafka:producer-config>
+  <!-- Configuration Properties -->
+  <configuration-properties doc:name="Configuration properties" file="config.yaml"></configuration-properties>
+  <!-- HTTP Listener -->
+  <http:listener-config doc:name="HTTP Listener Config" name="process-httpListenerConfig">
+    <http:listener-connection host="${http.listener.host}" port="${http.listener.port}"></http:listener-connection>
+  </http:listener-config>
+  <!-- APIKit Router: Pedido Process API -->
+  <apikit:config doc:name="Pedido Process APIKit Config" httpStatusVarName="httpStatus" name="pedido-process-config" outboundHeadersMapName="outboundHeaders" raml="resource::c7ee15f6-f8c2-43f4-9069-fdf07fa9ed36:pedido-process-spec:1.0.3:raml:zip:pedido-process-spec.raml"></apikit:config>
+  <!-- REST Connect: Pedido API -->
+  <!-- REST Connect: Estoque API -->
+  <pedido-api:config doc:name="Pedido API Config" name="Pedido-API-Config" property_basePath="${apis.pedido.basePath}" property_host="${apis.pedido.host}" property_port="${apis.pedido.port}" property_protocol="${apis.pedido.protocol}"></pedido-api:config>
+
+  <estoque-api:config doc:name="Estoque API Config" name="Estoque-API-Config" property_basePath="${apis.estoque.basePath}" property_host="${apis.estoque.host}" property_port="${apis.estoque.port}" property_protocol="${apis.estoque.protocol}"></estoque-api:config>
+  <!-- REST Connect: Fatura API -->
+  <fatura-api:config doc:name="Fatura API Config" name="Fatura-API-Config" property_basePath="${apis.fatura.basePath}" property_host="${apis.fatura.host}" property_port="${apis.fatura.port}" property_protocol="${apis.fatura.protocol}"></fatura-api:config>
+  <!-- Kafka Producer -->
+  <!-- Object Store persistente para recuperação de desastres (estado da saga) -->
+  <os:object-store doc:name="Saga State Store" entryTtl="24" entryTtlUnit="HOURS" maxEntries="10000" name="sagaStateStore" persistent="true"></os:object-store>
+</mule>

@@ -1,0 +1,499 @@
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:estoque-api="http://www.mulesoft.org/schema/mule/estoque-api" xmlns:fatura-api="http://www.mulesoft.org/schema/mule/fatura-api" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:kafka="http://www.mulesoft.org/schema/mule/kafka" xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns:pedido-api="http://www.mulesoft.org/schema/mule/pedido-api" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd                           http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd                           http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd                           http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd                           http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/kafka/current/mule-kafka.xsd                           http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd                           http://www.mulesoft.org/schema/mule/pedido-api http://www.mulesoft.org/schema/mule/pedido-api/current/mule-pedido-api.xsd                           http://www.mulesoft.org/schema/mule/estoque-api http://www.mulesoft.org/schema/mule/estoque-api/current/mule-estoque-api.xsd                           http://www.mulesoft.org/schema/mule/fatura-api http://www.mulesoft.org/schema/mule/fatura-api/current/mule-fatura-api.xsd">
+  <!-- ============================================================ -->
+  <!-- APIKIT MAIN FLOW                                             -->
+  <!-- ============================================================ -->
+  
+  <flow doc:id="apikit-main-flow" name="pedido-process-main">
+    <http:listener config-ref="process-httpListenerConfig" doc:name="HTTP Listener" path="/process/*">
+      <http:response statusCode="#[vars.httpStatus default 200]">
+        <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+      </http:response>
+      <http:error-response statusCode="#[vars.httpStatus default 500]">
+        <http:body>#[payload]</http:body>
+        <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+      </http:error-response>
+    </http:listener>
+    <apikit:router config-ref="pedido-process-config" doc:name="APIKit Router"></apikit:router>
+    <error-handler>
+      <on-error-propagate doc:name="Not Found" type="APIKIT:NOT_FOUND">
+        <ee:transform doc:name="404 Not Found">
+          <ee:message>
+            <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{ error: "NOT_FOUND", message: "Resource not found" }]]></ee:set-payload>
+          </ee:message>
+          <ee:variables>
+            <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+          </ee:variables>
+        </ee:transform>
+      </on-error-propagate>
+      <on-error-propagate doc:name="Method Not Allowed" type="APIKIT:METHOD_NOT_ALLOWED">
+        <ee:transform doc:name="405 Method Not Allowed">
+          <ee:message>
+            <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{ error: "METHOD_NOT_ALLOWED", message: "Method not allowed" }]]></ee:set-payload>
+          </ee:message>
+          <ee:variables>
+            <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+          </ee:variables>
+        </ee:transform>
+      </on-error-propagate>
+      <on-error-propagate doc:name="Bad Request" type="APIKIT:BAD_REQUEST">
+        <ee:transform doc:name="400 Bad Request">
+          <ee:message>
+            <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{ error: "BAD_REQUEST", message: error.description }]]></ee:set-payload>
+          </ee:message>
+          <ee:variables>
+            <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+          </ee:variables>
+        </ee:transform>
+      </on-error-propagate>
+    </error-handler>
+  </flow>
+  <flow name="pedido-process-console">
+        <http:listener config-ref="process-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="pedido-process-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+  <!-- ============================================================ -->
+  <!-- POST /process-order                                          -->
+  <!-- ============================================================ -->
+  <flow doc:id="main-orchestration-flow" name="post:\process-order:application\json:pedido-process-config">
+    <!-- Gerar Saga ID único e capturar contexto inicial -->
+    <ee:transform doc:name="Initialize Saga State">
+      <ee:message>
+        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+      </ee:message>
+      <ee:variables>
+        <ee:set-variable variableName="sagaId"><![CDATA[%dw 2.0
+output application/java
+---
+"saga-" ++ uuid()]]></ee:set-variable>
+        <ee:set-variable variableName="startTime"><![CDATA[%dw 2.0
+output application/java
+---
+now()]]></ee:set-variable>
+        <ee:set-variable variableName="originalRequest"><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-variable>
+      </ee:variables>
+    </ee:transform>
+    <logger doc:name="Start Saga" level="INFO" message="Starting saga: #[vars.sagaId] for customer: #[payload.customer.customerId]"></logger>
+    <!-- Persistir STARTED -->
+    <os:store doc:name="Store STARTED" key="#[vars.sagaId]" objectStore="sagaStateStore">
+      <os:value><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+    sagaId: vars.sagaId,
+    status: "STARTED",
+    lastCompletedStep: null,
+    startTime: vars.startTime as String,
+    originalRequest: vars.originalRequest
+}]]]></os:value>
+    </os:store>
+    <!-- Try-Catch: orquestração sequencial com compensação em caso de falha -->
+    <try doc:name="Saga Transaction Try">
+      <!-- ===================================================== -->
+      <!-- ETAPA 1: Criar Pedido                                  -->
+      <!-- ===================================================== -->
+      <logger doc:name="Log Pedido Step" level="INFO" message="Saga #[vars.sagaId]: Calling Pedido API (Step 1/3)"></logger>
+      <pedido-api:create-order config-ref="Pedido-API-Config" doc:name="POST /orders">
+        <pedido-api:create-order-request-data><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+    item: payload.order.item,
+    qty: payload.order.qty,
+    customerId: payload.customer.customerId
+}]]]></pedido-api:create-order-request-data>
+      </pedido-api:create-order>
+      <ee:transform doc:name="Store Pedido Response">
+        <ee:variables>
+          <ee:set-variable variableName="orderResponse"><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-variable>
+        </ee:variables>
+      </ee:transform>
+      <logger doc:name="Log Pedido Success" level="INFO" message="Saga #[vars.sagaId]: Order created - ID: #[vars.orderResponse.orderId]"></logger>
+      <os:store doc:name="Store PEDIDO_COMPLETED" failIfPresent="false" key="#[vars.sagaId]" objectStore="sagaStateStore">
+        <os:value><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+    sagaId: vars.sagaId,
+    status: "PEDIDO_COMPLETED",
+    lastCompletedStep: "PEDIDO",
+    orderId: vars.orderResponse.orderId,
+    startTime: vars.startTime as String,
+    originalRequest: vars.originalRequest
+}]]]></os:value>
+      </os:store>
+      <!-- ===================================================== -->
+      <!-- ETAPA 2: Reservar Estoque                              -->
+      <!-- ===================================================== -->
+      <logger doc:name="Log Estoque Step" level="INFO" message="Saga #[vars.sagaId]: Calling Estoque API (Step 2/3)"></logger>
+      <estoque-api:create-reserve config-ref="Estoque-API-Config" doc:name="POST /inventory/reserve">
+        <estoque-api:create-reserve-request-data><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+    orderId: vars.orderResponse.orderId,
+    item: vars.originalRequest.order.item,
+    qty: vars.originalRequest.order.qty,
+    customerId: vars.originalRequest.customer.customerId
+}]]]></estoque-api:create-reserve-request-data>
+      </estoque-api:create-reserve>
+      <ee:transform doc:name="Store Estoque Response">
+        <ee:variables>
+          <ee:set-variable variableName="inventoryResponse"><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-variable>
+        </ee:variables>
+      </ee:transform>
+      <logger doc:name="Log Estoque Success" level="INFO" message="Saga #[vars.sagaId]: Inventory reserved - ID: #[vars.inventoryResponse.reservationId]"></logger>
+      <os:store doc:name="Store ESTOQUE_COMPLETED" failIfPresent="false" key="#[vars.sagaId]" objectStore="sagaStateStore">
+        <os:value><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+    sagaId: vars.sagaId,
+    status: "ESTOQUE_COMPLETED",
+    lastCompletedStep: "ESTOQUE",
+    orderId: vars.orderResponse.orderId,
+    reservationId: vars.inventoryResponse.reservationId,
+    startTime: vars.startTime as String,
+    originalRequest: vars.originalRequest
+}]]]></os:value>
+      </os:store>
+      <!-- ===================================================== -->
+      <!-- ETAPA 3: Processar Faturamento                         -->
+      <!-- ===================================================== -->
+      <logger doc:name="Log Fatura Step" level="INFO" message="Saga #[vars.sagaId]: Calling Fatura API (Step 3/3)"></logger>
+      <fatura-api:create-charge config-ref="Fatura-API-Config" doc:name="POST /billing/charge">
+        <fatura-api:create-charge-request-data><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+    orderId: vars.orderResponse.orderId,
+    amount: vars.originalRequest.order.totalAmount,
+    customerId: vars.originalRequest.customer.customerId,
+    paymentMethod: vars.originalRequest.billing.paymentMethod
+}]]]></fatura-api:create-charge-request-data>
+      </fatura-api:create-charge>
+      <ee:transform doc:name="Store Fatura Response">
+        <ee:variables>
+          <ee:set-variable variableName="billingResponse"><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-variable>
+        </ee:variables>
+      </ee:transform>
+      <logger doc:name="Log Fatura Success" level="INFO" message="Saga #[vars.sagaId]: Billing processed - Charge ID: #[vars.billingResponse.chargeId]"></logger>
+      <os:store doc:name="Store FATURA_COMPLETED" failIfPresent="false" key="#[vars.sagaId]" objectStore="sagaStateStore">
+        <os:value><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+    sagaId: vars.sagaId,
+    status: "FATURA_COMPLETED",
+    lastCompletedStep: "FATURA",
+    orderId: vars.orderResponse.orderId,
+    reservationId: vars.inventoryResponse.reservationId,
+    chargeId: vars.billingResponse.chargeId,
+    startTime: vars.startTime as String,
+    originalRequest: vars.originalRequest
+}]]]></os:value>
+      </os:store>
+      <logger doc:name="Log Saga Success" level="INFO" message="Saga #[vars.sagaId]: All steps completed. Publishing to Kafka..."></logger>
+      <flow-ref doc:name="Publish Success to Kafka" name="publish-to-kafka"></flow-ref>
+      <os:store doc:name="Store COMPLETED" failIfPresent="false" key="#[vars.sagaId]" objectStore="sagaStateStore">
+        <os:value><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+    sagaId: vars.sagaId,
+    status: "COMPLETED",
+    lastCompletedStep: "KAFKA",
+    orderId: vars.orderResponse.orderId,
+    reservationId: vars.inventoryResponse.reservationId,
+    chargeId: vars.billingResponse.chargeId,
+    completedAt: now() as String,
+    startTime: vars.startTime as String
+}]]]></os:value>
+      </os:store>
+      <ee:transform doc:name="Success Response">
+        <ee:message>
+          <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    sagaId: vars.sagaId,
+    status: "COMPLETED",
+    message: "Order processed successfully",
+    executionTime: (now() - (vars.startTime default now())) as String,
+    results: {
+        orderResult: vars.orderResponse,
+        inventoryResult: vars.inventoryResponse,
+        billingResult: vars.billingResponse
+    }
+}]]></ee:set-payload>
+        </ee:message>
+        <ee:variables>
+          <ee:set-variable variableName="httpStatus">200</ee:set-variable>
+        </ee:variables>
+      </ee:transform>
+      <error-handler>
+        <on-error-propagate doc:name="On Error - Compensation" type="ANY">
+          <logger doc:name="Log Error" level="ERROR" message="Saga #[vars.sagaId]: Error - #[error.description]. Starting compensation..."></logger>
+          <ee:transform doc:name="Set Error Details">
+            <ee:variables>
+              <ee:set-variable variableName="errorDetails"><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorType: error.errorType.asString,
+    description: error.description,
+    timestamp: now() as String
+}]]></ee:set-variable>
+            </ee:variables>
+          </ee:transform>
+          <flow-ref doc:name="Execute Compensation" name="compensation-flow"></flow-ref>
+          <flow-ref doc:name="Publish Compensation to Kafka" name="publish-compensation-to-kafka"></flow-ref>
+          <os:store doc:name="Store COMPENSATED" failIfPresent="false" key="#[vars.sagaId]" objectStore="sagaStateStore">
+            <os:value><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+    sagaId: vars.sagaId,
+    status: "COMPENSATED",
+    lastCompletedStep: vars.lastCompletedStep default null,
+    error: vars.errorDetails,
+    compensationActions: vars.compensationActions default [],
+    compensatedAt: now() as String,
+    startTime: vars.startTime as String
+}]]]></os:value>
+          </os:store>
+          <ee:transform doc:name="Error Response">
+            <ee:message>
+              <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    sagaId: vars.sagaId,
+    status: "COMPENSATED",
+    message: "Order processing failed. Compensation completed.",
+    executionTime: (now() - (vars.startTime default now())) as String,
+    error: vars.errorDetails,
+    compensationActions: vars.compensationActions default []
+}]]></ee:set-payload>
+            </ee:message>
+            <ee:variables>
+              <ee:set-variable variableName="httpStatus">500</ee:set-variable>
+            </ee:variables>
+          </ee:transform>
+        </on-error-propagate>
+      </error-handler>
+    </try>
+  </flow>
+  <!-- ============================================================ -->
+  <!-- GET /saga-status/{sagaId}                                    -->
+  <!-- ============================================================ -->
+  <flow doc:id="get-saga-status-flow" name="get:\saga-status\(sagaId):pedido-process-config">
+    <os:retrieve doc:name="Retrieve Saga State" key="#[attributes.uriParams.sagaId]" objectStore="sagaStateStore">
+      <os:default-value><![CDATA[#[%dw 2.0
+output application/json
+---
+null]]]></os:default-value>
+    </os:retrieve>
+    <choice doc:name="Saga Found?">
+      <when expression="#[payload != null]">
+        <ee:transform doc:name="Found Response">
+          <ee:variables>
+            <ee:set-variable variableName="httpStatus">200</ee:set-variable>
+          </ee:variables>
+        </ee:transform>
+      </when>
+      <otherwise>
+        <ee:transform doc:name="Not Found Response">
+          <ee:message>
+            <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    error: "SAGA_NOT_FOUND",
+    sagaId: attributes.uriParams.sagaId,
+    message: "Saga state not found. It may have expired (TTL: 24h) or never existed."
+}]]></ee:set-payload>
+          </ee:message>
+          <ee:variables>
+            <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+          </ee:variables>
+        </ee:transform>
+      </otherwise>
+    </choice>
+  </flow>
+  <!-- ============================================================ -->
+  <!-- SUB-FLOW: COMPENSAÇÃO REVERSA                                -->
+  <!-- ============================================================ -->
+  <sub-flow doc:id="compensation-subflow" name="compensation-flow">
+    <logger doc:name="Log Compensation Start" level="INFO" message="Saga #[vars.sagaId]: Starting reverse compensation"></logger>
+    <ee:transform doc:name="Initialize Compensation Actions">
+      <ee:variables>
+        <ee:set-variable variableName="compensationActions"><![CDATA[%dw 2.0
+output application/java
+---
+[]]]></ee:set-variable>
+      </ee:variables>
+    </ee:transform>
+    <choice doc:name="Compensate Billing?">
+      <when expression="#[vars.billingResponse != null]">
+        <logger doc:name="Log Billing Compensation" level="WARN" message="Saga #[vars.sagaId]: Billing compensation - charge #[vars.billingResponse.chargeId] requires manual reconciliation (no DELETE endpoint)"></logger>
+        <ee:transform doc:name="Add Billing Compensation">
+          <ee:variables>
+            <ee:set-variable variableName="compensationActions"><![CDATA[%dw 2.0
+output application/java
+---
+vars.compensationActions ++ ["BILLING_COMPENSATED"]]]></ee:set-variable>
+          </ee:variables>
+        </ee:transform>
+      </when>
+    </choice>
+    <choice doc:name="Compensate Inventory?">
+      <when expression="#[vars.inventoryResponse != null]">
+        <try doc:name="Try Inventory Compensation">
+          <logger doc:name="Log Inventory Compensation" level="INFO" message="Saga #[vars.sagaId]: Releasing reservation: #[vars.inventoryResponse.reservationId]"></logger>
+          <estoque-api:delete-reserve-by-id config-ref="Estoque-API-Config" doc:name="DELETE /inventory/reserve/{id}" id="#[vars.inventoryResponse.reservationId]"></estoque-api:delete-reserve-by-id>
+          <ee:transform doc:name="Add Inventory Compensation">
+            <ee:variables>
+              <ee:set-variable variableName="compensationActions"><![CDATA[%dw 2.0
+output application/java
+---
+vars.compensationActions ++ ["INVENTORY_RELEASED"]]]></ee:set-variable>
+            </ee:variables>
+          </ee:transform>
+          <logger doc:name="Log Inventory Success" level="INFO" message="Saga #[vars.sagaId]: Inventory compensation completed"></logger>
+          <error-handler>
+            <on-error-continue doc:name="On Error Continue - Inventory">
+              <logger doc:name="Log Inventory Error" level="ERROR" message="Saga #[vars.sagaId]: Failed to release inventory: #[error.description]"></logger>
+            </on-error-continue>
+          </error-handler>
+        </try>
+      </when>
+    </choice>
+    <choice doc:name="Compensate Order?">
+      <when expression="#[vars.orderResponse != null]">
+        <try doc:name="Try Order Compensation">
+          <logger doc:name="Log Order Compensation" level="INFO" message="Saga #[vars.sagaId]: Cancelling order: #[vars.orderResponse.orderId]"></logger>
+          <pedido-api:delete-order-by-id config-ref="Pedido-API-Config" doc:name="DELETE /orders/{id}" id="#[vars.orderResponse.orderId]"></pedido-api:delete-order-by-id>
+          <ee:transform doc:name="Add Order Compensation">
+            <ee:variables>
+              <ee:set-variable variableName="compensationActions"><![CDATA[%dw 2.0
+output application/java
+---
+vars.compensationActions ++ ["ORDER_CANCELLED"]]]></ee:set-variable>
+            </ee:variables>
+          </ee:transform>
+          <logger doc:name="Log Order Success" level="INFO" message="Saga #[vars.sagaId]: Order compensation completed"></logger>
+          <error-handler>
+            <on-error-continue doc:name="On Error Continue - Order">
+              <logger doc:name="Log Order Error" level="ERROR" message="Saga #[vars.sagaId]: Failed to cancel order: #[error.description]"></logger>
+            </on-error-continue>
+          </error-handler>
+        </try>
+      </when>
+    </choice>
+    <logger doc:name="Log Compensation End" level="INFO" message="Saga #[vars.sagaId]: Compensation completed. Actions: #[vars.compensationActions]"></logger>
+  </sub-flow>
+  <!-- ============================================================ -->
+  <!-- SUB-FLOW: PUBLICAR EVENTO DE SUCESSO NO KAFKA               -->
+  <!-- ============================================================ -->
+  <sub-flow doc:id="kafka-success-subflow" name="publish-to-kafka">
+    <logger doc:name="Log Kafka Success Start" level="INFO" message="Saga #[vars.sagaId]: Publishing COMPLETED event to Kafka topic ${kafka.topic}"></logger>
+    <ee:transform doc:name="Build Kafka Success Payload">
+      <ee:message>
+        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    sagaId: vars.sagaId,
+    timestamp: now() as String {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"},
+    originalRequest: vars.originalRequest,
+    apiResponses: {
+        pedido: { orderId: vars.orderResponse.orderId, status: vars.orderResponse.status },
+        estoque: { reservationId: vars.inventoryResponse.reservationId, status: vars.inventoryResponse.status },
+        fatura: { chargeId: vars.billingResponse.chargeId, status: vars.billingResponse.status }
+    },
+    sagaStatus: "COMPLETED",
+    executionTime: (now() - (vars.startTime default now())) as String,
+    compensationActions: []
+}]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <kafka:publish config-ref="Kafka-config" doc:name="Publish Success to Kafka" key="#[%dw 2.0 output application/java --- vars.orderResponse.orderId default vars.sagaId]" topic="${kafka.topic}"></kafka:publish>
+    <logger doc:name="Log Kafka Success Published" level="INFO" message="Saga #[vars.sagaId]: COMPLETED event published to Kafka"></logger>
+  </sub-flow>
+  <!-- ============================================================ -->
+  <!-- SUB-FLOW: PUBLICAR EVENTO DE COMPENSAÇÃO NO KAFKA           -->
+  <!-- ============================================================ -->
+  <sub-flow doc:id="kafka-compensation-subflow" name="publish-compensation-to-kafka">
+    <logger doc:name="Log Kafka Compensation Start" level="INFO" message="Saga #[vars.sagaId]: Publishing COMPENSATING event to Kafka topic ${kafka.topic}"></logger>
+    <ee:transform doc:name="Build Kafka Compensation Payload">
+      <ee:message>
+        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    sagaId: vars.sagaId,
+    timestamp: now() as String {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"},
+    originalRequest: vars.originalRequest,
+    apiResponses: {
+        pedido: vars.orderResponse default {},
+        estoque: vars.inventoryResponse default {},
+        fatura: vars.billingResponse default {}
+    },
+    sagaStatus: "COMPENSATING",
+    executionTime: (now() - (vars.startTime default now())) as String,
+    error: vars.errorDetails,
+    compensationActions: vars.compensationActions default []
+}]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <kafka:publish config-ref="Kafka-config" doc:name="Publish Compensation to Kafka" key="#[%dw 2.0 output application/java --- vars.orderResponse.orderId default ('unknown-' ++ (vars.sagaId default uuid()))]" topic="${kafka.topic}"></kafka:publish>
+    <logger doc:name="Log Kafka Compensation Published" level="INFO" message="Saga #[vars.sagaId]: COMPENSATING event published to Kafka"></logger>
+  </sub-flow>
+</mule>
