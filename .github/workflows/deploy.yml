@@ -95,13 +95,13 @@ jobs:
 
       - name: Deploy to CloudHub 2
         run: |
-          anypoint-cli-v4 runtime-mgr cloudhub2-application deploy \
+          anypoint-cli-v4 runtime-mgr application deploy \
             --client_id "${{ secrets.ANYPOINT_CLIENT_ID }}" \
             --client_secret "${{ secrets.ANYPOINT_CLIENT_SECRET }}" \
             --organization "${{ secrets.ANYPOINT_ORG_ID }}" \
             --environment "${{ vars.DEPLOY_ENV }}" \
             --target "${{ vars.DEPLOY_TARGET }}" \
-            --runtime-version "4.11.2" \
+            --runtime "4.11.2" \
             --replicas 1 \
             --vcores "0.1" \
             "${{ vars.APP_NAME }}" \
