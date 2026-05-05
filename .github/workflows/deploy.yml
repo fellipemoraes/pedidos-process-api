@@ -33,7 +33,7 @@ jobs:
             ]
 
       - name: Build
-        run: mvn clean package -DskipTests -DskipRuntimeValidation=true
+        run: mvn clean package -DskipTests -DskipRuntimeValidation=true -X
 
       - name: Upload JAR
         uses: actions/upload-artifact@v4
