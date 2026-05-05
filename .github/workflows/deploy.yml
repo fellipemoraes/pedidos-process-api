@@ -93,6 +93,12 @@ jobs:
       - name: Install Anypoint CLI
         run: npm install -g anypoint-cli-v4
 
+      - name: Publish to Exchange
+        run: |
+          mvn deploy -DskipTests -DskipValidation=true \
+            -Danypoint.clientId="${{ secrets.ANYPOINT_CLIENT_ID }}" \
+            -Danypoint.clientSecret="${{ secrets.ANYPOINT_CLIENT_SECRET }}"
+
       - name: Deploy to CloudHub 2
         run: |
           anypoint-cli-v4 runtime-mgr application deploy \
@@ -100,9 +106,8 @@ jobs:
             --client_secret "${{ secrets.ANYPOINT_CLIENT_SECRET }}" \
             --organization "${{ secrets.ANYPOINT_ORG_ID }}" \
             --environment "${{ vars.DEPLOY_ENV }}" \
-            --target "${{ vars.DEPLOY_TARGET }}" \
-            --runtime "4.11.2" \
-            --replicas 1 \
-            --vcores "0.1" \
+            --replicaSize "0.1" \
             "${{ vars.APP_NAME }}" \
-            *.jar
+            "${{ vars.DEPLOY_TARGET }}" \
+            "${{ vars.RUNTIME_VERSION }}" \
+            "${{ vars.APP_NAME }}"
