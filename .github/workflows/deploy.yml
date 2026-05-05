@@ -114,6 +114,7 @@ jobs:
         run: |
           anypoint-cli-v4 runtime-mgr application deploy \
             --replicaSize "0.1" \
+            --publicEndpoints "${{ vars.PUBLIC_ENDPOINT }}" \
             "${{ vars.APP_NAME }}" \
             "${{ vars.DEPLOY_TARGET }}" \
             "${{ vars.RUNTIME_VERSION }}" \
