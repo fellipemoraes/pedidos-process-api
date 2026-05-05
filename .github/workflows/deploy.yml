@@ -29,6 +29,43 @@ jobs:
                 "id": "anypoint-exchange-v3",
                 "username": "~~~Client~~~",
                 "password": "${{ secrets.ANYPOINT_CLIENT_ID }}~?~${{ secrets.ANYPOINT_CLIENT_SECRET }}"
+              },
+              {
+                "id": "mulesoft-releases",
+                "username": "~~~Client~~~",
+                "password": "${{ secrets.ANYPOINT_CLIENT_ID }}~?~${{ secrets.ANYPOINT_CLIENT_SECRET }}"
+              },
+              {
+                "id": "mulesoft-enterprise",
+                "username": "~~~Client~~~",
+                "password": "${{ secrets.ANYPOINT_CLIENT_ID }}~?~${{ secrets.ANYPOINT_CLIENT_SECRET }}"
+              }
+            ]
+          repositories: |
+            [
+              {
+                "id": "anypoint-exchange-v3",
+                "name": "Anypoint Exchange",
+                "url": "https://maven.anypoint.mulesoft.com/api/v3/maven",
+                "releases": { "enabled": "true" },
+                "snapshots": { "enabled": "false" }
+              },
+              {
+                "id": "mulesoft-releases",
+                "name": "MuleSoft Releases",
+                "url": "https://repository.mulesoft.org/releases/",
+                "releases": { "enabled": "true" },
+                "snapshots": { "enabled": "false" }
+              }
+            ]
+          plugin_repositories: |
+            [
+              {
+                "id": "mulesoft-releases",
+                "name": "MuleSoft Releases",
+                "url": "https://repository.mulesoft.org/releases/",
+                "releases": { "enabled": "true" },
+                "snapshots": { "enabled": "false" }
               }
             ]
 
