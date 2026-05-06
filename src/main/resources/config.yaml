@@ -7,7 +7,7 @@ kafka:
   kafkaManagerUsername: "admin"
   kafkaManagerPassword: "mulesoft123"
   
-# APIs Configuration (System Layer)
+# APIs Configuration (System Layer) - Exchange Assets
 apis:
   pedido:
     host: "pedido-sys-sh06qr.qfq181.bra-s1.cloudhub.io"
