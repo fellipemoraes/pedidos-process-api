@@ -1,5 +1,5 @@
 # Configurações do pedido-process
-# Kafka Bahia Configuration
+# Kafka Bahia Configuration to send messages
 kafka:
   bootstrapServers: "tcp://cloud-services.demos.mulesoft.com:30858"
   topic: "pedido.new"
