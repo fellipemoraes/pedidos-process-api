@@ -371,7 +371,7 @@ output application/json
   <!-- SUB-FLOW: COMPENSAÇÃO REVERSA                                -->
   <!-- ============================================================ -->
   <sub-flow doc:id="compensation-subflow" name="compensation-flow">
-    <logger doc:name="Log Compensation Start" level="INFO" message="Saga #[vars.sagaId]: Starting reverse compensation"></logger>
+    <logger doc:name="Log Compensation Start" level="INFO" message="Saga #[vars.sagaId]: Starting reverse compensation flows"></logger>
     <ee:transform doc:name="Initialize Compensation Actions">
       <ee:variables>
         <ee:set-variable variableName="compensationActions"><![CDATA[%dw 2.0
