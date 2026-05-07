@@ -110,7 +110,7 @@ output application/json
 payload]]></ee:set-variable>
       </ee:variables>
     </ee:transform>
-    <logger doc:name="Start Saga" level="INFO" message="Starting saga: #[vars.sagaId] for customer: #[payload.customer.customerId]"></logger>
+    <logger doc:name="Start Saga" level="INFO" message="Starting saga flow: #[vars.sagaId] for customer: #[payload.customer.customerId]"></logger>
     <!-- Persistir STARTED -->
     <os:store doc:name="Store STARTED" key="#[vars.sagaId]" objectStore="sagaStateStore">
       <os:value><![CDATA[#[%dw 2.0
