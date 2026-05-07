@@ -1,0 +1,11 @@
+* text=auto eol=lf
+
+*.xml  text diff=xml
+*.json text diff=json
+*.yaml text
+*.yml  text
+*.dwl  text
+*.raml text
+
+*.jar  binary
+*.zip  binary
