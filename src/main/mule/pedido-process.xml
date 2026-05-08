@@ -443,7 +443,7 @@ vars.compensationActions ++ ["ORDER_CANCELLED"]]]></ee:set-variable>
   <!-- SUB-FLOW: PUBLICAR EVENTO DE SUCESSO NO KAFKA               -->
   <!-- ============================================================ -->
   <sub-flow doc:id="kafka-success-subflow" name="publish-to-kafka">
-    <logger doc:name="Log Kafka Success Start" level="INFO" message="Saga #[vars.sagaId]: Publishing COMPLETED event to Kafka topic ${kafka.topic}"></logger>
+    <logger doc:name="Log Kafka Success Start" level="INFO" message="Saga ID Number #[vars.sagaId]: Publishing COMPLETED event to Kafka topic ${kafka.topic}"></logger>
     <ee:transform doc:name="Build Kafka Success Payload">
       <ee:message>
         <ee:set-payload><![CDATA[%dw 2.0
