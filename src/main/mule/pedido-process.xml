@@ -382,7 +382,7 @@ output application/java
     </ee:transform>
     <choice doc:name="Compensate Billing?">
       <when expression="#[vars.billingResponse != null]">
-        <logger doc:name="Log Billing Compensation" level="WARN" message="Saga #[vars.sagaId]: Billing compensation - charge #[vars.billingResponse.chargeId] requires manual reconciliation (no DELETE endpoint)"></logger>
+        <logger doc:name="Log Billing Compensation" level="WARN" message="Saga ID Number #[vars.sagaId]: Billing compensation - charge #[vars.billingResponse.chargeId] requires manual reconciliation (no DELETE endpoint)"></logger>
         <ee:transform doc:name="Add Billing Compensation">
           <ee:variables>
             <ee:set-variable variableName="compensationActions"><![CDATA[%dw 2.0
