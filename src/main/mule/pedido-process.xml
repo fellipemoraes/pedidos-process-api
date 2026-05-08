@@ -357,7 +357,7 @@ output application/json
 {
     error: "SAGA_NOT_FOUND",
     sagaId: attributes.uriParams.sagaId,
-    message: "Saga state not found. It may have expired (TTL: 24h) or never existed."
+    message: "Saga state not found. It may have expired (TTL: 24h) or never existed in the system."
 }]]></ee:set-payload>
           </ee:message>
           <ee:variables>
