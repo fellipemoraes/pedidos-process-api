@@ -1,62 +1,25 @@
 {
   "info": {
-    "_postman_id": "febc3ded-cc24-436c-99a8-cf68e73e12c4",
-    "name": "Casas Bahia",
+    "name": "pedido-process — Saga Orchestration",
+    "_postman_id": "pedido-process-saga-v2",
     "description": "Testes automatizados do fluxo Saga no pedido-process (CloudHub 2). Inclui happy path, compensação e validação de contrato.",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "_exporter_id": "26833963"
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
-  "item": [
+  "variable": [
     {
-      "name": "Cenario 1 - Legado API",
-      "protocolProfileBehavior": {
-        "disableBodyPruning": true
-      },
-      "request": {
-        "auth": {
-          "type": "noauth"
-        },
-        "method": "GET",
-        "header": [],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"customer\": {\n    \"customerId\": \"1002\",\n    \"name\": \"Maria Souza\",\n    \"email\": \"maria@email.com\",\n    \"document\": \"98765432100\"\n  },\n  \"order\": {\n    \"item\": \"Laptop\",\n    \"qty\": 1,\n    \"unitPrice\": 2599.99,\n    \"totalAmount\": 2599.99\n  },\n  \"billing\": {\n    \"paymentMethod\": \"CREDIT_CARD\",\n    \"cardToken\": \"tok_1234567890\"\n  },\n  \"shipping\": {\n    \"address\": \"Rua das Flores, 123\",\n    \"city\": \"São Paulo\",\n    \"state\": \"SP\",\n    \"zipCode\": \"01234-567\"\n  }\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        },
-        "url": {
-          "raw": "https://agent-network-ingress-gw-sh06qr.qfq181.bra-s1.cloudhub.io/legado-api/customers?page=0&size=5",
-          "protocol": "https",
-          "host": [
-            "agent-network-ingress-gw-sh06qr",
-            "qfq181",
-            "bra-s1",
-            "cloudhub",
-            "io"
-          ],
-          "path": [
-            "legado-api",
-            "customers"
-          ],
-          "query": [
-            {
-              "key": "page",
-              "value": "0"
-            },
-            {
-              "key": "size",
-              "value": "5"
-            }
-          ]
-        }
-      },
-      "response": []
+      "key": "baseUrl",
+      "value": "https://agent-network-ingress-gw-sh06qr.qfq181.bra-s1.cloudhub.io",
+      "type": "string"
     },
     {
-      "name": "Cenario 2 SAGA - Happy Path (Saga COMPLETED)",
+      "key": "sagaId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 — Happy Path (Saga COMPLETED)",
       "event": [
         {
           "listen": "prerequest",
@@ -134,48 +97,38 @@
       "request": {
         "method": "POST",
         "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
+          { "key": "Content-Type", "value": "application/json" }
         ],
+        "url": {
+          "raw": "{{baseUrl}}/process/process-order",
+          "host": ["{{baseUrl}}"],
+          "path": ["process", "process-order"]
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"customer\": {\n    \"customerId\": \"{{dynamicCustomerId}}\",\n    \"name\": \"Maria Souza\",\n    \"email\": \"maria@email.com\",\n    \"document\": \"98765432100\"\n  },\n  \"order\": {\n    \"item\": \"{{dynamicItem}}\",\n    \"qty\": {{dynamicQty}},\n    \"unitPrice\": {{dynamicUnitPrice}},\n    \"totalAmount\": {{dynamicTotal}}\n  },\n  \"billing\": {\n    \"paymentMethod\": \"CREDIT_CARD\",\n    \"cardToken\": \"tok_1234567890\"\n  },\n  \"shipping\": {\n    \"address\": \"Rua das Flores, 123\",\n    \"city\": \"{{dynamicCity}}\",\n    \"state\": \"{{dynamicState}}\",\n    \"zipCode\": \"{{dynamicZip}}\"\n  }\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/process/process-order",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "process",
-            "process-order"
-          ]
         }
-      },
-      "response": []
+      }
     },
     {
-      "name": "Cenario 2 SAGA - Erro Step 2: Estoque (Saga COMPENSATED)",
+      "name": "02 — Erro Step 2: Estoque (Saga COMPENSATED)",
       "event": [
         {
           "listen": "prerequest",
           "script": {
+            "type": "text/javascript",
             "exec": [
               "// qty >= 99 → estoque-sys lança INVENTORY:OUT_OF_STOCK",
               "// Pedido já foi criado (Step 1 completo) → compensação: ORDER_CANCELLED",
               "// Estoque nunca chegou a reservar → NÃO há INVENTORY_RELEASED",
               "console.log('⚡ Triggering inventory error via qty=99 → INVENTORY:OUT_OF_STOCK → compensa ORDER');"
-            ],
-            "type": "text/javascript",
-            "packages": {},
-            "requests": {}
+            ]
           }
         },
         {
           "listen": "test",
           "script": {
+            "type": "text/javascript",
             "exec": [
               "pm.test('HTTP 500 (compensação ativada)', () => pm.response.to.have.status(500));",
               "",
@@ -190,7 +143,7 @@
               "});",
               "",
               "pm.test('error.errorType contém INVENTORY', () => {",
-              "    pm.expect(body.error.errorType).to.include('ESTOQUE-API:INTERNAL_SERVER_ERROR');",
+              "    pm.expect(body.error.errorType).to.include('INVENTORY');",
               "});",
               "",
               "pm.test('compensationActions inclui ORDER_CANCELLED', () => {",
@@ -207,58 +160,45 @@
               "",
               "pm.collectionVariables.set('sagaId', body.sagaId);",
               "console.log('🔄 Compensação Estoque — sagaId:', body.sagaId, '| actions:', body.compensationActions);"
-            ],
-            "type": "text/javascript",
-            "packages": {},
-            "requests": {}
+            ]
           }
         }
       ],
       "request": {
         "method": "POST",
         "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
+          { "key": "Content-Type", "value": "application/json" }
         ],
+        "url": {
+          "raw": "{{baseUrl}}/process/process-order",
+          "host": ["{{baseUrl}}"],
+          "path": ["process", "process-order"]
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"customer\": {\n    \"customerId\": \"CUST-2002\",\n    \"name\": \"Pedro Lima\",\n    \"email\": \"pedro@email.com\",\n    \"document\": \"11122233344\"\n  },\n  \"order\": {\n    \"item\": \"Laptop\",\n    \"qty\": 99,\n    \"unitPrice\": 2599.99,\n    \"totalAmount\": 257399.01\n  },\n  \"billing\": {\n    \"paymentMethod\": \"CREDIT_CARD\",\n    \"cardToken\": \"tok_1234567890\"\n  },\n  \"shipping\": {\n    \"address\": \"Av. Paulista, 1000\",\n    \"city\": \"Sao Paulo\",\n    \"state\": \"SP\",\n    \"zipCode\": \"01310-100\"\n  }\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/process/process-order",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "process",
-            "process-order"
-          ]
         }
-      },
-      "response": []
+      }
     },
     {
-      "name": "Cenario 2 SAGA - Erro Step 3: Fatura (Saga COMPENSATED)",
+      "name": "03 — Erro Step 3: Fatura (Saga COMPENSATED)",
       "event": [
         {
           "listen": "prerequest",
           "script": {
+            "type": "text/javascript",
             "exec": [
               "// customerId '1001' → Pedido retorna orderId 'ORD-555'",
               "// Fatura detecta ORD-555 e lança BILLING:PAYMENT_FAILED",
               "// Compensação: INVENTORY_RELEASED + ORDER_CANCELLED",
               "console.log('⚡ Triggering compensation via customerId=1001 → orderId=ORD-555 → Fatura 500');"
-            ],
-            "type": "text/javascript",
-            "packages": {},
-            "requests": {}
+            ]
           }
         },
         {
           "listen": "test",
           "script": {
+            "type": "text/javascript",
             "exec": [
               "pm.test('HTTP 500 (compensação ativada)', () => pm.response.to.have.status(500));",
               "",
@@ -273,7 +213,7 @@
               "});",
               "",
               "pm.test('error.errorType contém BILLING', () => {",
-              "    pm.expect(body.error.errorType).to.include('FATURA-API:INTERNAL_SERVER_ERROR');",
+              "    pm.expect(body.error.errorType).to.include('BILLING');",
               "});",
               "",
               "pm.test('compensationActions inclui INVENTORY_RELEASED', () => {",
@@ -290,40 +230,28 @@
               "",
               "pm.collectionVariables.set('sagaId', body.sagaId);",
               "console.log('🔄 Compensação — sagaId:', body.sagaId, '| actions:', body.compensationActions);"
-            ],
-            "type": "text/javascript",
-            "packages": {},
-            "requests": {}
+            ]
           }
         }
       ],
       "request": {
         "method": "POST",
         "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
+          { "key": "Content-Type", "value": "application/json" }
         ],
+        "url": {
+          "raw": "{{baseUrl}}/process/process-order",
+          "host": ["{{baseUrl}}"],
+          "path": ["process", "process-order"]
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"customer\": {\n    \"customerId\": \"1001\",\n    \"name\": \"Joao Silva\",\n    \"email\": \"joao@email.com\",\n    \"document\": \"12345678900\"\n  },\n  \"order\": {\n    \"item\": \"Laptop\",\n    \"qty\": 1,\n    \"unitPrice\": 2599.99,\n    \"totalAmount\": 2599.99\n  },\n  \"billing\": {\n    \"paymentMethod\": \"CREDIT_CARD\",\n    \"cardToken\": \"tok_1234567890\"\n  },\n  \"shipping\": {\n    \"address\": \"Rua das Flores, 123\",\n    \"city\": \"Sao Paulo\",\n    \"state\": \"SP\",\n    \"zipCode\": \"01234-567\"\n  }\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/process/process-order",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "process",
-            "process-order"
-          ]
         }
-      },
-      "response": []
+      }
     },
     {
-      "name": "Cenario 2 SAGA - 400 Bad Request (payload inválido)",
+      "name": "03 — 400 Bad Request (payload inválido)",
       "event": [
         {
           "listen": "test",
@@ -348,30 +276,21 @@
       "request": {
         "method": "POST",
         "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
+          { "key": "Content-Type", "value": "application/json" }
         ],
+        "url": {
+          "raw": "{{baseUrl}}/process/process-order",
+          "host": ["{{baseUrl}}"],
+          "path": ["process", "process-order"]
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"customer\": {}\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/process/process-order",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "process",
-            "process-order"
-          ]
         }
-      },
-      "response": []
+      }
     },
     {
-      "name": "Cenario 2 SAGA - GET Saga Status (usa sagaId do request anterior)",
+      "name": "04 — GET Saga Status (usa sagaId do request anterior)",
       "event": [
         {
           "listen": "prerequest",
@@ -420,59 +339,10 @@
         "header": [],
         "url": {
           "raw": "{{baseUrl}}/process/saga-status/{{sagaId}}",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "process",
-            "saga-status",
-            "{{sagaId}}"
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["process", "saga-status", "{{sagaId}}"]
         }
-      },
-      "response": []
-    }
-  ],
-  "variable": [
-    {
-      "key": "baseUrl",
-      "value": "https://agent-network-ingress-gw-sh06qr.qfq181.bra-s1.cloudhub.io"
-    },
-    {
-      "key": "sagaId",
-      "value": ""
-    },
-    {
-      "key": "dynamicCustomerId",
-      "value": ""
-    },
-    {
-      "key": "dynamicItem",
-      "value": ""
-    },
-    {
-      "key": "dynamicQty",
-      "value": ""
-    },
-    {
-      "key": "dynamicUnitPrice",
-      "value": ""
-    },
-    {
-      "key": "dynamicTotal",
-      "value": ""
-    },
-    {
-      "key": "dynamicZip",
-      "value": ""
-    },
-    {
-      "key": "dynamicState",
-      "value": ""
-    },
-    {
-      "key": "dynamicCity",
-      "value": ""
+      }
     }
   ]
 }
